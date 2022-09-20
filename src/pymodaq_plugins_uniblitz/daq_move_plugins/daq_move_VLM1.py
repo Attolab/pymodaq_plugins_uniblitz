@@ -2,8 +2,10 @@ from pymodaq.daq_move.utility_classes import DAQ_Move_base  # base class
 from pymodaq.daq_move.utility_classes import comon_parameters, main  # common set of parameters for all actuators
 from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo  # object used to send info back to the main thread
 from easydict import EasyDict as edict  # type of dict
+import serial
+from serial.tools import list_ports
 
-class DAQ_Move_Template(DAQ_Move_base):
+class DAQ_Move_VLM1(DAQ_Move_base):
     """
         Wrapper object to access the Mock fonctionnalities, similar wrapper for all controllers.
 
@@ -13,10 +15,31 @@ class DAQ_Move_Template(DAQ_Move_base):
         =============== ==============
     """
     _controller_units = 'whatever'
-    is_multiaxes = True  # set to True if this plugin is controlled for a multiaxis controller (with a unique communication link)
+    is_multiaxes = False  # set to True if this plugin is controlled for a multiaxis controller (with a unique communication link)
     stage_names = []  # "list of strings of the multiaxes
 
-    params = [   ## TODO for your custom plugin
+    COMports = [COMport.device for COMport in list_ports.comports()]
+    isOpened = False
+    if len(COMports) > 0:
+        COMport = COMports[0]
+    else:
+        COMport = None
+
+    params = [   
+        {
+            'title': 'COM Port:',
+            'name': 'COM_port',
+            'type': 'list',
+            'limits': COMports,
+            'value': COMport
+        },
+        {
+            'title': 'isOpened',
+            'name': 'isOpened',
+            'type': 'bool',
+            'value': isOpened
+        },
+        ## TODO for your custom plugin
                  # elements to be added here as dicts in order to control your custom stage
                  ############
                  {'title': 'MultiAxes:', 'name': 'multiaxes', 'type': 'group', 'visible': is_multiaxes, 'children': [
@@ -27,6 +50,7 @@ class DAQ_Move_Template(DAQ_Move_base):
                      {'title': 'Axis:', 'name': 'axis', 'type': 'list', 'limits': stage_names},
 
                  ]}] + comon_parameters
+    print('parametres resolus')
 
     def __init__(self, parent=None, params_state=None):
         """
@@ -40,8 +64,10 @@ class DAQ_Move_Template(DAQ_Move_base):
             ============== ================================================ ==========================================================================================
 
         """
-
+        print('init')
         super().__init__(parent, params_state)
+        self.controller = None
+
 
 
     def check_position(self):
@@ -51,12 +77,11 @@ class DAQ_Move_Template(DAQ_Move_base):
         -------
         float: The position obtained after scaling conversion.
         """
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        pos = self.controller.your_method_to_get_the_actuator_value()  # when writing your own plugin replace this line
-        ##
 
-        pos = self.get_position_with_scaling(pos)
+        if self.isOpened:
+            pos = 1.0
+        else:
+            pos = 0.0
         self.emit_status(ThreadCommand('check_position',[pos]))
         return pos
 
@@ -65,10 +90,9 @@ class DAQ_Move_Template(DAQ_Move_base):
         """
         Terminate the communication protocol
         """
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_terminate_the_communication()  # when writing your own plugin replace this line
-        ##
+
+        self.controller.close()
+
 
     def commit_settings(self, param):
         """
@@ -78,14 +102,15 @@ class DAQ_Move_Template(DAQ_Move_base):
 
         """
 
-        ## TODO for your custom plugin
-        if param.name() == "a_parameter_you've_added_in_self.params":
-           self.controller.your_method_to_apply_this_param_change()
+        if param.name() == "COMPort":
+            self.close()
+            self.COMport = param.value()
+        elif param.name() == 'isOpened':
+            self.isOpened = param.value()
 
         else:
             pass
 
-        ##
 
     def ini_stage(self, controller=None):
         """Actuator communication initialization
@@ -102,7 +127,7 @@ class DAQ_Move_Template(DAQ_Move_base):
             *initialized: (bool): False if initialization failed otherwise True
         """
 
-
+        print('Tentative d\'initialisation')
         try:
             # initialize the stage and its controller status
             # controller is an object that may be passed to other instances of DAQ_Move_Mock in case
@@ -118,14 +143,12 @@ class DAQ_Move_Template(DAQ_Move_base):
                     raise Exception('no controller has been defined externally while this axe is a slave one')
                 else:
                     self.controller = controller
-            else:  # Master stage
+            else:
+                self.controller = serial.Serial(self.COMport, baudrate=9600)
 
-                ## TODO for your custom plugin
-                raise NotImplemented  # when writing your own plugin remove this line
-                self.controller = python_wrapper_of_your_instrument()  # when writing your own plugin replace this line
-                #####################################
 
-            self.status.info = "Whatever info you want to log"
+            print('port ouvert')
+            self.status.info = "Port ouvert"
             self.status.controller = self.controller
             self.status.initialized = True
             return self.status
@@ -144,17 +167,15 @@ class DAQ_Move_Template(DAQ_Move_base):
         ----------
         position: (flaot) value of the absolute target positioning
         """
+        
+        if position >= 1:
+            position = 1
+        else:
+            position = 0
 
-        position = self.check_bound(position)  #if user checked bounds, the defined bounds are applied here
-        position = self.set_position_with_scaling(position)  # apply scaling if the user specified one
 
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_set_an_absolute_value()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status',['Some info you want to log']))
-        ##############################
-
-        self.target_position = position
+        self.controller.write([b'A', b'@'][position])
+        self.isOpened = not self.isOpened
 
     def move_Rel(self, position):
         """ Move the actuator to the relative target actuator value defined by position
@@ -166,11 +187,10 @@ class DAQ_Move_Template(DAQ_Move_base):
         position = self.check_bound(self.current_position+position)-self.current_position
         self.target_position = position + self.current_position
 
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_set_a_relative_value()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status',['Some info you want to log']))
-        ##############################
+        if position > 0:
+            self.move_Abs(1)
+        else:
+            self.move_Abs(0)
 
     def move_Home(self):
         """
@@ -179,29 +199,13 @@ class DAQ_Move_Template(DAQ_Move_base):
             --------
             daq_utils.ThreadCommand
         """
-
-        ## TODO for your custom plugin
-        raise NotImplemented  # when writing your own plugin remove this line
-        self.controller.your_method_to_get_to_a_known_reference()  # when writing your own plugin replace this line
-        self.emit_status(ThreadCommand('Update_Status',['Some info you want to log']))
-        ##############################
-
-    def stop_motion(self):
-      """
-        Call the specific move_done function (depending on the hardware).
-
-        See Also
-        --------
-        move_done
-      """
-
-      ## TODO for your custom plugin
-      raise NotImplemented  # when writing your own plugin remove this line
-      self.controller.your_method_to_stop_positioning()  # when writing your own plugin replace this line
-      self.emit_status(ThreadCommand('Update_Status', ['Some info you want to log']))
-      self.move_done() #to let the interface know the actuator stopped
-      ##############################
+        self.move_Abs(0)
 
 
 if __name__ == '__main__':
-    main(__file__)
+    # main(__file__)
+    test = DAQ_Move_VLM1()
+    print(test.params)
+    test.ini_stage()
+    test.move_Abs(0)
+    test.close()
