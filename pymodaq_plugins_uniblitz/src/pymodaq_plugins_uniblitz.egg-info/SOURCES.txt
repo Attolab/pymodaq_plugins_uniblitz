@@ -1,0 +1,15 @@
+LICENSE
+MANIFEST.in
+README.rst
+setup.py
+src/pymodaq_plugins_uniblitz/VERSION
+src/pymodaq_plugins_uniblitz/__init__.py
+src/pymodaq_plugins_uniblitz.egg-info/PKG-INFO
+src/pymodaq_plugins_uniblitz.egg-info/SOURCES.txt
+src/pymodaq_plugins_uniblitz.egg-info/dependency_links.txt
+src/pymodaq_plugins_uniblitz.egg-info/entry_points.txt
+src/pymodaq_plugins_uniblitz.egg-info/requires.txt
+src/pymodaq_plugins_uniblitz.egg-info/top_level.txt
+src/pymodaq_plugins_uniblitz/daq_move_plugins/__init__.py
+src/pymodaq_plugins_uniblitz/daq_move_plugins/daq_move_shutter.py
+src/pymodaq_plugins_uniblitz/hardware/__init__.py

@@ -1,0 +1,2 @@
+[pymodaq.plugins]
+uniblitz = pymodaq_plugins_uniblitz
