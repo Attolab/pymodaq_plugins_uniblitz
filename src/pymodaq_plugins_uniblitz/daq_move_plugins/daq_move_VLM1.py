@@ -20,6 +20,8 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 
     COMports = [COMport.device for COMport in list_ports.comports()]
     isOpened = False
+    button = False
+
     if len(COMports) > 0:
         COMport = COMports[0]
     else:
@@ -34,10 +36,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             'value': COMport
         },
         {
-            'title': 'isOpened',
-            'name': 'isOpened',
-            'type': 'bool',
-            'value': isOpened
+            'title': 'button',
+            'name': 'Button',
+            'type': 'bool_push',
+            'value': button
         },
         ## TODO for your custom plugin
                  # elements to be added here as dicts in order to control your custom stage
@@ -50,7 +52,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
                      {'title': 'Axis:', 'name': 'axis', 'type': 'list', 'limits': stage_names},
 
                  ]}] + comon_parameters
-    print('parametres resolus')
 
     def __init__(self, parent=None, params_state=None):
         """
@@ -127,7 +128,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             *initialized: (bool): False if initialization failed otherwise True
         """
 
-        print('Tentative d\'initialisation')
         try:
             # initialize the stage and its controller status
             # controller is an object that may be passed to other instances of DAQ_Move_Mock in case
@@ -147,7 +147,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
                 self.controller = serial.Serial(self.COMport, baudrate=9600)
 
 
-            print('port ouvert')
+            print(self.COMport + ' opened')
             self.status.info = "Port ouvert"
             self.status.controller = self.controller
             self.status.initialized = True
@@ -168,14 +168,17 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         position: (flaot) value of the absolute target positioning
         """
         
-        if position >= 1:
-            position = 1
+        if (position > 0 and not self.button) or (position <=0 and self.button):
+            self.controller.write(b'@')
+            self.isOpened = True
         else:
             position = 0
+            self.controller.write(b'A')
+            self.isOpened = False
 
 
         self.controller.write([b'A', b'@'][position])
-        self.isOpened = not self.isOpened
+        # self.isOpened = not self.isOpened
 
     def move_Rel(self, position):
         """ Move the actuator to the relative target actuator value defined by position
