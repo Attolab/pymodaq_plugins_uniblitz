@@ -105,7 +105,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 
         if param.name() == "COM_Port":
             self.close()
-            self.COMport = param.value()
         elif param.name() == 'isOpened':
             self.isOpened = param.value()
 
@@ -144,10 +143,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
                 else:
                     self.controller = controller
             else:
-                self.controller = serial.Serial(self.COMport, baudrate=9600)
+                com_port = self.settings.child('COM_port').value()
+                self.controller = serial.Serial(com_port, baudrate=9600)
+                print(comp_port + ' opened')
 
-
-            print(self.COMport + ' opened')
             self.status.info = "Port ouvert"
             self.status.controller = self.controller
             self.status.initialized = True
