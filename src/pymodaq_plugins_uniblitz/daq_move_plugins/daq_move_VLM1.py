@@ -23,7 +23,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
     button = False
 
     if len(COMports) > 0:
-        COMport = COMports[0]
+        if 'COM10' in COMports:
+            COMport = 'COM10'
+        else:
+            COMport = COMports[0]
     else:
         COMport = None
 
@@ -34,12 +37,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             'type': 'list',
             'limits': COMports,
             'value': COMport
-        },
-        {
-            'title': 'button',
-            'name': 'Button',
-            'type': 'bool_push',
-            'value': button
         },
         ## TODO for your custom plugin
                  # elements to be added here as dicts in order to control your custom stage
@@ -68,8 +65,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         print('init')
         super().__init__(parent, params_state)
         self.controller = None
-
-
+        self.settings.child(('epsilon')).setValue(1)
+        self.settings.child('bounds', 'is_bounds').setValue(True)
+        self.settings.child('bounds', 'max_bound').setValue(1)
+        self.settings.child('bounds', 'min_bound').setValue(0)
 
     def check_position(self):
         """Get the current position from the hardware with scaling conversion.
@@ -78,12 +77,9 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         -------
         float: The position obtained after scaling conversion.
         """
-
-        if self.isOpened:
-            pos = 1.0
-        else:
-            pos = 0.0
+        pos = self.current_position
         self.emit_status(ThreadCommand('check_position',[pos]))
+
         return pos
 
 
@@ -91,8 +87,8 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         """
         Terminate the communication protocol
         """
-
-        self.controller.close()
+        if self.controller is not None:
+            self.controller.close()
 
 
     def commit_settings(self, param):
@@ -105,12 +101,8 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 
         if param.name() == "COM_Port":
             self.close()
-        elif param.name() == 'isOpened':
-            self.isOpened = param.value()
-
         else:
             pass
-
 
     def ini_stage(self, controller=None):
         """Actuator communication initialization
@@ -145,7 +137,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             else:
                 com_port = self.settings.child('COM_port').value()
                 self.controller = serial.Serial(com_port, baudrate=9600)
-                print(comp_port + ' opened')
+                print(com_port + ' opened')
 
             self.status.info = "Port ouvert"
             self.status.controller = self.controller
@@ -166,18 +158,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         ----------
         position: (flaot) value of the absolute target positioning
         """
-        
-        if (position > 0 and not self.button) or (position <=0 and self.button):
-            self.controller.write(b'@')
-            self.isOpened = True
-        else:
-            position = 0
-            self.controller.write(b'A')
-            self.isOpened = False
-
-
-        self.controller.write([b'A', b'@'][position])
-        # self.isOpened = not self.isOpened
+        if position not in [0, 1]:
+            position = 1
+        self.controller.write([b'A', b'@'][int(position)])
+        self.current_position = int(position)
 
     def move_Rel(self, position):
         """ Move the actuator to the relative target actuator value defined by position
@@ -186,13 +170,8 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         ----------
         position: (flaot) value of the relative target positioning
         """
-        position = self.check_bound(self.current_position+position)-self.current_position
-        self.target_position = position + self.current_position
-
-        if position > 0:
-            self.move_Abs(1)
-        else:
-            self.move_Abs(0)
+        if position != 0:
+            self.move_Abs(int(not self.current_position))
 
     def move_Home(self):
         """
@@ -202,6 +181,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             daq_utils.ThreadCommand
         """
         self.move_Abs(0)
+        self.current_position = 0
 
 
 if __name__ == '__main__':
