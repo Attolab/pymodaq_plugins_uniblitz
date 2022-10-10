@@ -103,7 +103,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 
         """
 
-        if param.name() == "COMPort":
+        if param.name() == "COM_Port":
             self.close()
             self.COMport = param.value()
         elif param.name() == 'isOpened':
