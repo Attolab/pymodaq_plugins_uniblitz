@@ -1,9 +1,12 @@
 from pymodaq.daq_move.utility_classes import DAQ_Move_base  # base class
 from pymodaq.daq_move.utility_classes import comon_parameters, main  # common set of parameters for all actuators
 from pymodaq.daq_utils.daq_utils import ThreadCommand, getLineInfo  # object used to send info back to the main thread
+from pymodaq.daq_utils import daq_utils as utils
 from easydict import EasyDict as edict  # type of dict
 import serial
 from serial.tools import list_ports
+
+logger = utils.set_logger(utils.get_module_name(__file__))
 
 class DAQ_Move_VLM1(DAQ_Move_base):
     """
@@ -137,7 +140,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             else:
                 com_port = self.settings.child('COM_port').value()
                 self.controller = serial.Serial(com_port, baudrate=9600)
-                print(com_port + ' opened')
+                logger.info('Shutter connected on port '+com_port)
 
             self.status.info = "Port ouvert"
             self.status.controller = self.controller
