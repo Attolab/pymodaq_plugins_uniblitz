@@ -65,7 +65,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             ============== ================================================ ==========================================================================================
 
         """
-        print('init')
         super().__init__(parent, params_state)
         self.controller = None
         self.settings.child(('epsilon')).setValue(1)
