@@ -6,7 +6,8 @@ from easydict import EasyDict as edict  # type of dict
 import serial
 from serial.tools import list_ports
 
-logger = utils.set_logger(utils.get_module_name(__file__))
+from pymodaq.utils.logger import set_logger
+logger = set_logger(utils.get_module_name(__file__))
 
 class DAQ_Move_VLM1(DAQ_Move_base):
     """
