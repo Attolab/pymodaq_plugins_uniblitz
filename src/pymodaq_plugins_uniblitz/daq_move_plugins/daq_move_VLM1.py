@@ -6,8 +6,8 @@ from easydict import EasyDict as edict  # type of dict
 import serial
 from serial.tools import list_ports
 
-from pymodaq.utils.logger import set_logger
-logger = set_logger(utils.get_module_name(__file__))
+# from pymodaq.utils.logger import set_logger
+# logger = set_logger(utils.get_module_name(__file__))
 
 class DAQ_Move_VLM1(DAQ_Move_base):
     """
@@ -130,7 +130,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
             else:
                 com_port = self.settings.child('COM_port').value()
                 self.controller = serial.Serial(com_port, baudrate=9600)
-                logger.info('Shutter connected on port '+com_port)
+                # logger.info('Shutter connected on port '+com_port)
 
             self.status.info = "Port ouvert"
             self.status.controller = self.controller
