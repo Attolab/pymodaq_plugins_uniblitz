@@ -113,8 +113,10 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         self.current_position = int(value)
 
     def move_rel(self, value: DataActuator):
-        if value != 0:
-            self.move_abs(int(not self.current_position))
+        if value > 0:
+            self.move_abs(1)
+        elif value <0:
+            self.move_abs(0)
 
     def move_home(self):
         """Call the reference method of the controller"""
@@ -126,7 +128,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 if __name__ == '__main__':
     # main(__file__)
     test = DAQ_Move_VLM1()
-    print(test.params)
+    # print(test.params)
     test.ini_stage()
     test.move_abs(0)
     test.close()
