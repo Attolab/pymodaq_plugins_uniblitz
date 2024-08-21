@@ -128,7 +128,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 if __name__ == '__main__':
     # main(__file__)
     test = DAQ_Move_VLM1()
-    # print(test.params)
+    print(test.params)
     test.ini_stage()
     test.move_abs(0)
     test.close()
