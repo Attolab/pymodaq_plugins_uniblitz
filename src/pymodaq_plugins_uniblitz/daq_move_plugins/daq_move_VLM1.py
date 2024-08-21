@@ -1,26 +1,21 @@
-from pymodaq.control_modules.move_utility_classes import DAQ_Move_base  # base class
-from pymodaq.control_modules.move_utility_classes import comon_parameters_fun, main  # common set of parameters for all actuators
-from pymodaq.utils.daq_utils import ThreadCommand, getLineInfo  # object used to send info back to the main thread
-from pymodaq.utils import daq_utils as utils
-from easydict import EasyDict as edict  # type of dict
+from pymodaq.control_modules.move_utility_classes import DAQ_Move_base, comon_parameters_fun, main, DataActuatorType,\
+    DataActuator  # common set of parameters for all actuators
+from pymodaq.utils.daq_utils import ThreadCommand # object used to send info back to the main thread
+from pymodaq.utils.parameter import Parameter
 import serial
 from serial.tools import list_ports
 
-# from pymodaq.utils.logger import set_logger
-# logger = set_logger(utils.get_module_name(__file__))
+
 
 class DAQ_Move_VLM1(DAQ_Move_base):
-    """
-        Wrapper object to access the Mock fonctionnalities, similar wrapper for all controllers.
 
-        =============== ==============
-        **Attributes**    **Type**
-        *params*          dictionnary
-        =============== ==============
-    """
     _controller_units = 'whatever'
-    is_multiaxes = False  # set to True if this plugin is controlled for a multiaxis controller (with a unique communication link)
-    stage_names = []  # "list of strings of the multiaxes
+    is_multiaxes = False
+
+    _axis_names = ['Axis1', 'Axis2']  # TODO for your plugin: complete the list
+    _epsilon = 0.1
+    data_actuator_type = DataActuatorType['DataActuator']  # wether you use the new data style for actuator otherwise set this
+    # as  DataActuatorType['float']  (or entirely remove the line)
 
     COMports = [COMport.device for COMport in list_ports.comports()]
     isOpened = False
@@ -34,6 +29,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
     else:
         COMport = None
     stage_names = []
+
     params = [   
         {
             'title': 'COM Port:',
@@ -45,36 +41,19 @@ class DAQ_Move_VLM1(DAQ_Move_base):
                  ] + comon_parameters_fun(is_multiaxes, stage_names)
 
     def __init__(self, parent=None, params_state=None):
-        """
-            Initialize the the class
-
-            ============== ================================================ ==========================================================================================
-            **Parameters**  **Type**                                         **Description**
-
-            *parent*        Caller object of this plugin                    see DAQ_Move_main.DAQ_Move_stage
-            *params_state*  list of dicts                                   saved state of the plugins parameters list
-            ============== ================================================ ==========================================================================================
-
-        """
         super().__init__(parent, params_state)
         self.controller = None
         self.settings.child(('epsilon')).setValue(1)
         self.settings.child('bounds', 'is_bounds').setValue(True)
         self.settings.child('bounds', 'max_bound').setValue(1)
         self.settings.child('bounds', 'min_bound').setValue(0)
+        self.current_position = 0
 
-    def check_position(self):
-        """Get the current position from the hardware with scaling conversion.
-
-        Returns
-        -------
-        float: The position obtained after scaling conversion.
+    def get_actuator_value(self):
+        """Not implemented yet.
         """
-        pos = self.current_position
-        self.emit_status(ThreadCommand('check_position',[pos]))
-
+        pos = self.current_position     #The position it remembers, but does not check with the hardware.
         return pos
-
 
     def close(self):
         """
@@ -82,7 +61,6 @@ class DAQ_Move_VLM1(DAQ_Move_base):
         """
         if self.controller is not None:
             self.controller.close()
-
 
     def commit_settings(self, param):
         """
@@ -102,79 +80,47 @@ class DAQ_Move_VLM1(DAQ_Move_base):
 
         Parameters
         ----------
-        controller: (object) custom object of a PyMoDAQ plugin (Slave case). None if only one actuator by controller (Master case)
+        controller: (object)
+            custom object of a PyMoDAQ plugin (Slave case). None if only one actuator by controller (Master case)
 
         Returns
         -------
-        self.status (edict): with initialization status: three fields:
-            * info (str)
-            * controller (object) initialized controller
-            *initialized: (bool): False if initialization failed otherwise True
+        info: str
+        initialized: bool
+            False if initialization failed otherwise True
         """
 
         try:
-            # initialize the stage and its controller status
-            # controller is an object that may be passed to other instances of DAQ_Move_Mock in case
-            # of one controller controlling multiactuators (or detector)
+            com_port = self.settings.child('COM_port').value()
+            self.controller = serial.Serial(com_port, baudrate=9600)
+            # logger.info('Shutter connected on port '+com_port)
 
-            self.status.update(edict(info="", controller=None, initialized=False))
 
-            # check whether this stage is controlled by a multiaxe controller (to be defined for each plugin)
-            # if multiaxes then init the controller here if Master state otherwise use external controller
-            if self.settings.child('multiaxes', 'ismultiaxes').value() and self.settings.child('multiaxes',
-                                   'multi_status').value() == "Slave":
-                if controller is None:
-                    raise Exception('no controller has been defined externally while this axe is a slave one')
-                else:
-                    self.controller = controller
-            else:
-                com_port = self.settings.child('COM_port').value()
-                self.controller = serial.Serial(com_port, baudrate=9600)
-                # logger.info('Shutter connected on port '+com_port)
-
-            self.status.info = "Port ouvert"
-            self.status.controller = self.controller
-            self.status.initialized = True
-            return self.status
-
+            info = "Port ouvert"
+            initialized = True
+            return info, initialized
         except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status',[getLineInfo()+ str(e),'log']))
-            self.status.info=getLineInfo()+ str(e)
-            self.status.initialized=False
-            return self.status
+            info = 'Initialisation failed'
+            initialized = False
+            return info, initialized
 
+    def move_abs(self, value: DataActuator):
+        if value > 0:
+            value = 1
+        else:
+            value = 0
+        self.controller.write([b'A', b'@'][int(value)])
+        self.current_position = int(value)
 
-    def move_Abs(self, position):
-        """ Move the actuator to the absolute target defined by position
+    def move_rel(self, value: DataActuator):
+        if value != 0:
+            self.move_abs(int(not self.current_position))
 
-        Parameters
-        ----------
-        position: (flaot) value of the absolute target positioning
-        """
-        if position not in [0, 1]:
-            position = 1
-        self.controller.write([b'A', b'@'][int(position)])
-        self.current_position = int(position)
-
-    def move_Rel(self, position):
-        """ Move the actuator to the relative target actuator value defined by position
-
-        Parameters
-        ----------
-        position: (flaot) value of the relative target positioning
-        """
-        if position != 0:
-            self.move_Abs(int(not self.current_position))
-
-    def move_Home(self):
-        """
-          Send the update status thread command.
-            See Also
-            --------
-            daq_utils.ThreadCommand
-        """
-        self.move_Abs(0)
+    def move_home(self):
+        """Call the reference method of the controller"""
+        self.move_abs(0)
         self.current_position = 0
+
 
 
 if __name__ == '__main__':
@@ -182,5 +128,5 @@ if __name__ == '__main__':
     test = DAQ_Move_VLM1()
     print(test.params)
     test.ini_stage()
-    test.move_Abs(0)
+    test.move_abs(0)
     test.close()
