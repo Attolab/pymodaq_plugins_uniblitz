@@ -12,7 +12,7 @@ class DAQ_Move_VLM1(DAQ_Move_base):
     _controller_units = 'whatever'
     is_multiaxes = False
 
-    _axis_names = ['Axis1', 'Axis2']  # TODO for your plugin: complete the list
+    _axis_names = ['Shutter']
     _epsilon = 0.1
     data_actuator_type = DataActuatorType['DataActuator']  # wether you use the new data style for actuator otherwise set this
     # as  DataActuatorType['float']  (or entirely remove the line)
